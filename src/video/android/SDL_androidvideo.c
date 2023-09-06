@@ -66,6 +66,7 @@ static int Android_DeviceHeight = 0;
 static Uint32 Android_ScreenFormat = SDL_PIXELFORMAT_RGB565; /* Default SurfaceView format, in case this is queried before being filled */
 static int Android_ScreenRate = 0;
 SDL_sem *Android_PauseSem = NULL;
+SDL_sem *Android_PauseHandledSem = NULL;
 SDL_sem *Android_ResumeSem = NULL;
 SDL_mutex *Android_ActivityMutex = NULL;
 

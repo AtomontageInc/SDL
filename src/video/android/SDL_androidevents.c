@@ -109,6 +109,28 @@ void Android_PumpEvents_Blocking(_THIS)
 {
     SDL_VideoData *videodata = (SDL_VideoData *)_this->driverdata;
 
+   if (videodata->isPausing || SDL_SemTryWait(Android_PauseSem) == 0) {
+
+        /* Android_PauseSem was signaled */
+        if (videodata->isPausing == 0) {
+            SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
+            SDL_SendAppEvent(SDL_APP_WILLENTERBACKGROUND);
+            SDL_SendAppEvent(SDL_APP_DIDENTERBACKGROUND);
+        }
+
+        /* We've been signaled to pause (potentially several times), but before we block ourselves,
+         * we need to make sure that the very last event (of the first pause sequence, if several)
+         * has reached the app */
+        if (SDL_NumberOfEvents(SDL_APP_DIDENTERBACKGROUND) > SDL_SemValue(Android_PauseSem)) {
+            videodata->isPausing = 1;
+        }
+        else {
+            videodata->isPausing = 0;
+            videodata->isPaused = 1;
+            SDL_SemPost(Android_PauseHandledSem);
+        }
+    }
+
     if (videodata->isPaused) {
         SDL_bool isContextExternal = SDL_IsVideoContextExternal();
 
@@ -150,26 +172,6 @@ void Android_PumpEvents_Blocking(_THIS)
             /* Make sure SW Keyboard is restored when an app becomes foreground */
             if (SDL_IsTextInputActive()) {
                 Android_StartTextInput(_this); /* Only showTextInput */
-            }
-        }
-    } else {
-        if (videodata->isPausing || SDL_SemTryWait(Android_PauseSem) == 0) {
-
-            /* Android_PauseSem was signaled */
-            if (videodata->isPausing == 0) {
-                SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
-                SDL_SendAppEvent(SDL_APP_WILLENTERBACKGROUND);
-                SDL_SendAppEvent(SDL_APP_DIDENTERBACKGROUND);
-            }
-
-            /* We've been signaled to pause (potentially several times), but before we block ourselves,
-             * we need to make sure that the very last event (of the first pause sequence, if several)
-             * has reached the app */
-            if (SDL_NumberOfEvents(SDL_APP_DIDENTERBACKGROUND) > SDL_SemValue(Android_PauseSem)) {
-                videodata->isPausing = 1;
-            } else {
-                videodata->isPausing = 0;
-                videodata->isPaused = 1;
             }
         }
     }
@@ -255,6 +257,7 @@ void Android_PumpEvents_NonBlocking(_THIS)
                 videodata->isPausing = 0;
                 videodata->isPaused = 1;
                 backup_context = 1;
+                SDL_SemPost(Android_PauseHandledSem);
             }
         }
     }

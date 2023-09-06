@@ -586,6 +586,11 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativeSetupJNI)(JNIEnv *env, jclass cl
         __android_log_print(ANDROID_LOG_ERROR, "SDL", "failed to create Android_PauseSem semaphore");
     }
 
+    Android_PauseHandledSem = SDL_CreateSemaphore(0);
+    if (Android_PauseHandledSem == NULL) {
+        __android_log_print(ANDROID_LOG_ERROR, "SDL", "failed to create Android_PauseHandledSem semaphore");
+    }
+
     Android_ResumeSem = SDL_CreateSemaphore(0);
     if (Android_ResumeSem == NULL) {
         __android_log_print(ANDROID_LOG_ERROR, "SDL", "failed to create Android_ResumeSem semaphore");
@@ -1245,6 +1250,11 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativeQuit)(
         Android_PauseSem = NULL;
     }
 
+    if (Android_PauseHandledSem) {
+        SDL_DestroySemaphore(Android_PauseHandledSem);
+        Android_PauseHandledSem = NULL;
+    }
+
     if (Android_ResumeSem) {
         SDL_DestroySemaphore(Android_ResumeSem);
         Android_ResumeSem = NULL;
@@ -1269,6 +1279,9 @@ JNIEXPORT void JNICALL SDL_JAVA_INTERFACE(nativePause)(
     /* Signal the pause semaphore so the event loop knows to pause and (optionally) block itself.
      * Sometimes 2 pauses can be queued (eg pause/resume/pause), so it's always increased. */
     SDL_SemPost(Android_PauseSem);
+
+    /* Wait for the pause to be handled by the SDL thread */
+    SDL_SemWait(Android_PauseHandledSem);
 }
 
 /* Resume */
